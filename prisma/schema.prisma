@@ -25,28 +25,32 @@ model Cohort {
   name      String   @unique
   createdAt DateTime @default(now())
 
-  users User[]
+  users       User[]
+  assignments Assignment[]
 }
 
 model User {
-  id            String     @id @default(cuid())
-  email         String     @unique
-  passwordHash  String
-  fullName      String
-  note          String?
-  role          Role       @default(STUDENT)
-  status        UserStatus @default(ACTIVE)
-  maxDevices    Int        @default(2)
-  expiresAt     DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  fullName     String
+  note         String?
+  role         Role       @default(STUDENT)
+  status       UserStatus @default(ACTIVE)
+  maxDevices   Int        @default(2)
+  expiresAt    DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   cohortId String?
   cohort   Cohort? @relation(fields: [cohortId], references: [id])
 
-  devices   Device[]
-  sessions  Session[]
-  loginLogs LoginLog[]
+  devices       Device[]
+  sessions      Session[]
+  loginLogs     LoginLog[]
+  createdTests  Test[]       @relation("TestCreatedBy")
+  uploadedFiles SourceFile[]
+  assignments   Assignment[]
 
   @@index([cohortId])
 }
@@ -74,36 +78,240 @@ model Device {
 }
 
 model Session {
-  id         String    @id @default(cuid())
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  deviceId   String
-  device     Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  tokenHash  String    @unique
-  createdAt  DateTime  @default(now())
-  lastSeenAt DateTime  @default(now())
-  expiresAt  DateTime
-  revokedAt  DateTime?
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId      String
+  device        Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  tokenHash     String    @unique
+  createdAt     DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
   revokedReason String?
-  ip         String?
-  userAgent  String?
+  ip            String?
+  userAgent     String?
 
   @@index([userId])
   @@index([deviceId])
 }
 
 model LoginLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  deviceId  String?
-  device    Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deviceId   String?
+  device     Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
   emailTried String
-  success   Boolean
-  reason    String? // e.g. "bad_password", "suspended", "expired", "device_limit", "ok"
-  ip        String?
-  userAgent String?
-  createdAt DateTime @default(now())
+  success    Boolean
+  reason     String? // e.g. "bad_password", "suspended", "expired", "device_limit", "ok"
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------
+// Phase 2 — test content: upload → AI parse → editor review → publish.
+// Test-taking (Attempt/AttemptAnswer) is added in Phase 3.
+// ---------------------------------------------------------------------
+
+enum TestType {
+  FULL_TEST
+  PRACTICE_SET
+}
+
+enum TestStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TimedMode {
+  TIMED
+  UNTIMED
+}
+
+enum Section {
+  READING_WRITING
+  MATH
+}
+
+enum DifficultyTier {
+  STANDARD
+  EASY
+  HARD
+}
+
+enum QuestionType {
+  MCQ
+  GRID_IN
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ParseJobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model SourceFile {
+  id               String   @id @default(cuid())
+  testId           String
+  test             Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  storageKey       String
+  originalName     String
+  mimeType         String
+  sizeBytes        Int
+  uploadedByUserId String?
+  uploadedByUser   User?    @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now())
+
+  parseJobs ParseJob[]
+
+  @@index([testId])
+}
+
+model ParseJob {
+  id           String         @id @default(cuid())
+  testId       String
+  test         Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
+  sourceFileId String
+  sourceFile   SourceFile     @relation(fields: [sourceFileId], references: [id], onDelete: Cascade)
+  status       ParseJobStatus @default(PENDING)
+  questionId   String? // set when this job re-parses a single question, else parses the whole file
+  rawResponse  Json?
+  errorMessage String?
+  createdAt    DateTime       @default(now())
+  completedAt  DateTime?
+
+  @@index([testId])
+}
+
+model Test {
+  id            String     @id @default(cuid())
+  title         String
+  type          TestType   @default(FULL_TEST)
+  status        TestStatus @default(DRAFT)
+  timedMode     TimedMode  @default(TIMED)
+  allowRetakes  Int        @default(1)
+  version       Int        @default(1)
+  rootTestId    String? // points to the first version when this is a re-published edit
+  rootTest      Test?      @relation("TestVersions", fields: [rootTestId], references: [id])
+  laterVersions Test[]     @relation("TestVersions")
+  publishedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  createdByUserId String?
+  createdByUser   User?   @relation("TestCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  modules     Module[]
+  sourceFiles SourceFile[]
+  parseJobs   ParseJob[]
+  scoreScales ScoreScale[]
+  assignments Assignment[]
+
+  @@index([status])
+  @@index([rootTestId])
+}
+
+model Module {
+  id             String         @id @default(cuid())
+  testId         String
+  test           Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
+  section        Section
+  moduleNumber   Int
+  difficultyTier DifficultyTier @default(STANDARD)
+  timeLimitSec   Int
+  orderIndex     Int
+
+  questions Question[]
+
+  @@index([testId])
+}
+
+model Question {
+  id            String       @id @default(cuid())
+  moduleId      String
+  module        Module       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  number        Int
+  orderIndex    Int
+  passageMd     String?
+  stemMd        String
+  type          QuestionType @default(MCQ)
+  correctAnswer Json // string | string[] — accepted representations (grid-in allows multiple forms)
+  explanationMd String?
+  domain        String?
+  skill         String?
+  difficulty    Difficulty?
+  confidence    Float?
+  needsReview   Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  choices Choice[]
+  images  QuestionImage[]
+
+  @@index([moduleId])
+  @@index([domain, skill, difficulty])
+}
+
+model Choice {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String // "A" | "B" | "C" | "D"
+  textMd     String
+  orderIndex Int
+
+  @@index([questionId])
+}
+
+model QuestionImage {
+  id          String   @id @default(cuid())
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  storageKey  String
+  placeholder String? // e.g. "[IMG_1]" — where it was referenced in the parsed passage/stem
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@index([questionId])
+}
+
+model ScoreScale {
+  id          String  @id @default(cuid())
+  testId      String
+  test        Test    @relation(fields: [testId], references: [id], onDelete: Cascade)
+  section     Section
+  rawScore    Int
+  scaledScore Int
+
+  @@unique([testId, section, rawScore])
+}
+
+model Assignment {
+  id          String    @id @default(cuid())
+  testId      String
+  test        Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
+  cohortId    String?
+  cohort      Cohort?   @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  openAt      DateTime?
+  closeAt     DateTime?
+  maxAttempts Int       @default(1)
+  createdAt   DateTime  @default(now())
+
+  @@index([testId])
+  @@index([cohortId])
+  @@index([userId])
 }

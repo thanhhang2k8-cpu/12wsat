@@ -12,15 +12,16 @@ export default async function DashboardPage() {
           Chào, {firstName(user.fullName)}
         </h1>
         <p className="mt-1 text-[14px] text-muted">
-          Đây là bản dựng Phase 1 — mới có đăng nhập, tài khoản và khung giao diện.
+          Đây là bản dựng Phase 2 — mentor đã có thể upload/AI-parse/duyệt/publish đề, nhưng
+          màn hình làm bài cho học viên vẫn chưa có.
         </p>
       </div>
 
       <div className="border-t border-b border-rule py-6">
         <p className="text-[14px] leading-relaxed text-muted">
-          Real Test, Luyện theo dạng, Question Bank, Vocab Notebook và Sổ lỗi sẽ có dữ liệu
-          thật từ Phase 2 trở đi, khi luồng nhập đề bằng AI hoàn thành. Trang này sẽ tự
-          hiện tiến độ, bài mentor giao và điểm gần nhất ngay khi có đề đầu tiên được publish.
+          Real Test, Luyện theo dạng, Question Bank, Vocab Notebook và Sổ lỗi sẽ có ở Phase 3
+          trở đi, khi màn hình làm bài (timer, adaptive, chấm điểm) được xây xong. Trang này sẽ
+          tự hiện tiến độ, bài mentor giao và điểm gần nhất ngay khi bạn làm được bài đầu tiên.
         </p>
       </div>
     </div>

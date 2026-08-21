@@ -41,4 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# local file storage (dev stand-in for Supabase Storage / R2 — see src/lib/storage.ts)
+/.data
+
 /src/generated/prisma

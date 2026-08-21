@@ -20,6 +20,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/users" className="text-ink hover:text-pen">
               Học viên
             </Link>
+            <Link href="/admin/tests" className="text-ink hover:text-pen">
+              Đề thi
+            </Link>
           </nav>
         </div>
         <div className="flex items-center gap-4">
