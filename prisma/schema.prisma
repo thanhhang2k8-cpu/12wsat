@@ -1,0 +1,109 @@
+// 12WSAT — Phase 1 schema: accounts, devices, sessions, login audit.
+// Test/question/vocab models are added in later phases.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model Cohort {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  users User[]
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  passwordHash  String
+  fullName      String
+  note          String?
+  role          Role       @default(STUDENT)
+  status        UserStatus @default(ACTIVE)
+  maxDevices    Int        @default(2)
+  expiresAt     DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  cohortId String?
+  cohort   Cohort? @relation(fields: [cohortId], references: [id])
+
+  devices   Device[]
+  sessions  Session[]
+  loginLogs LoginLog[]
+
+  @@index([cohortId])
+}
+
+model Device {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceIdToken String    @unique // long-lived opaque id stored in a cookie on the client
+  label         String // derived from user-agent, e.g. "Chrome trên Windows"
+  userAgent     String
+  platform      String?
+  screenRes     String?
+  timezone      String?
+  firstIp       String?
+  lastIp        String?
+  firstSeenAt   DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  revokedAt     DateTime?
+
+  sessions  Session[]
+  loginLogs LoginLog[]
+
+  @@index([userId])
+}
+
+model Session {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId   String
+  device     Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  revokedReason String?
+  ip         String?
+  userAgent  String?
+
+  @@index([userId])
+  @@index([deviceId])
+}
+
+model LoginLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deviceId  String?
+  device    Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  emailTried String
+  success   Boolean
+  reason    String? // e.g. "bad_password", "suspended", "expired", "device_limit", "ok"
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
