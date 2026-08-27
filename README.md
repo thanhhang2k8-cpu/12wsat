@@ -34,7 +34,9 @@ Mở http://localhost:3000 — sẽ được đưa thẳng tới `/login`.
 |---|---|
 | `DATABASE_URL` | Chuỗi kết nối Postgres (Supabase, Neon, hoặc Postgres local đều dùng được) |
 | `SESSION_SECRET` | Khoá bí mật để băm session token. Sinh bằng `openssl rand -hex 32`. Đổi khoá này sẽ vô hiệu hoá toàn bộ session đang mở |
-| `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | Chỉ dùng bởi `npm run seed` để tạo tài khoản admin đầu tiên |
+| `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | **Bắt buộc.** Dùng bởi `npm run seed` để tạo tài khoản admin đầu tiên — không có mật khẩu mặc định, thiếu 2 biến này thì seed báo lỗi thay vì tự đoán |
+| `SEED_ADMIN_NAME` | Tuỳ chọn, tên hiển thị của admin (mặc định "Mentor") |
+| `SEED_STUDENT_EMAIL` / `SEED_STUDENT_PASSWORD` / `SEED_STUDENT_NAME` | Tuỳ chọn — đặt cả 2 biến đầu để seed tạo thêm một tài khoản học viên thật (ngoài 2 tài khoản demo cố định) |
 | `ANTHROPIC_API_KEY` | Khoá gọi Claude để quét đề. **Không đặt** → app tự chuyển sang chế độ mock (xem bên dưới), không lỗi |
 | `ANTHROPIC_MODEL` | Model dùng để quét đề. Mặc định `claude-opus-5` |
 | `AI_PARSE_MODE=mock` | Ép dùng bộ parser giả ngay cả khi đã có `ANTHROPIC_API_KEY` (hữu ich khi test UI mà không muốn tốn API call) |
@@ -62,14 +64,52 @@ route đăng ký nào trong ứng dụng:
 npm run seed
 ```
 
-Script này tạo (hoặc cập nhật, an toàn để chạy lại nhiều lần):
+Script này tạo (hoặc cập nhật, an toàn để chạy lại nhiều lần — không bao giờ
+ghi đè mật khẩu của một tài khoản đã tồn tại):
 
 - 1 tài khoản **admin** theo `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`
+- 1 tài khoản **học viên thật** theo `SEED_STUDENT_EMAIL` / `SEED_STUDENT_PASSWORD`, nếu bạn đặt 2 biến này
 - 1 nhóm mẫu "SAT — Lớp T8"
-- 2 tài khoản **học viên** mẫu: `ha@12wsat.local` / `minh@12wsat.local`, mật khẩu `hocvien123`
+- 2 tài khoản **học viên demo** cố định: `ha@12wsat.local` / `minh@12wsat.local`, mật khẩu `hocvien123`
 
 Sau khi có admin đầu tiên, mọi tài khoản khác được tạo trong trang
 `/admin/users` — không cần chạy lại script.
+
+`npm run seed` gọi đúng hàm `hashPassword()` mà `/login` dùng để so khớp
+(`src/lib/auth/password.ts`, argon2id) — không có hai chỗ băm mật khẩu khác
+nhau trong code.
+
+## Deploy lên Vercel — vì sao "build thành công" chưa chắc đăng nhập được
+
+`next build` chỉ biên dịch code — nó **không** tự tạo bảng trong database
+hay tạo tài khoản admin. Nếu bạn deploy mà chưa từng chạy migration + seed
+nhắm vào đúng database production, sẽ không có admin nào để đăng nhập dù
+build xanh. Để tránh việc này, script `build` trong `package.json` đã được
+nối thêm `prisma migrate deploy` (tạo bảng) và một bước `postbuild` chạy
+`npm run seed` (tạo/đảm bảo có admin) — nghĩa là **mỗi lần Vercel build lại
+đều tự làm 2 việc đó**, bạn không cần SSH hay chạy lệnh tay. Việc bạn cần
+làm chỉ là:
+
+1. Vào Vercel → Project → **Settings → Environment Variables**, thêm ít nhất:
+   `DATABASE_URL`, `SESSION_SECRET`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`
+   (thêm `SEED_STUDENT_EMAIL`/`SEED_STUDENT_PASSWORD` nếu muốn có sẵn 1 tài
+   khoản học viên thật). `DATABASE_URL` phải trỏ tới một Postgres Vercel
+   build **kết nối được lúc build** (Supabase/Neon public connection string
+   đều dùng được).
+2. Bấm **Redeploy** (không cần chọn "use existing build cache" — cứ để mặc
+   định là được).
+3. Xem log build: sẽ thấy `prisma migrate deploy` áp dụng migration, rồi
+   `npm run seed` in ra email admin vừa tạo/xác nhận. Nếu bước này lỗi
+   (thường là thiếu biến môi trường hoặc `DATABASE_URL` sai), build sẽ đỏ
+   và log nói rõ thiếu gì — sửa biến môi trường rồi Redeploy lại.
+4. Đăng nhập bằng đúng `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` bạn vừa đặt.
+
+Một nguyên nhân khác gây "đăng nhập không được" dù có admin trong DB: thư
+viện hash mật khẩu `@node-rs/argon2` có phần native code, và nếu Next.js cố
+đóng gói nó như JS thường thì việc hash/verify mật khẩu âm thầm hỏng trên
+serverless dù chạy `next dev` ở máy bạn vẫn ổn. `next.config.ts` đã khai báo
+`serverExternalPackages` cho gói này (và `@prisma/adapter-pg`/`pg`) để tránh
+đúng lỗi đó.
 
 ## Xác thực & phiên đăng nhập — cách hoạt động
 
@@ -158,11 +198,15 @@ trên chỉ để backup thủ công/di chuyển dữ liệu.
 
 ```bash
 npm run dev            # dev server
-npm run build           # build production, chạy type-check
+npm run build           # build production — chạy migrate deploy, next build, rồi seed (postbuild)
 npx prisma studio        # xem/sửa dữ liệu qua UI
-npx prisma migrate dev   # tạo + áp dụng migration mới sau khi sửa schema.prisma
-npm run seed              # (tạo lại) admin + 2 học viên mẫu + 1 đề mẫu ngắn
+npx prisma migrate dev   # tạo + áp dụng migration mới sau khi sửa schema.prisma (chỉ dùng khi dev)
+npm run seed              # (tạo lại) admin + học viên + 1 đề mẫu ngắn
 ```
+
+Lưu ý: `npm run build` giờ cần `DATABASE_URL` kết nối được (để chạy
+`prisma migrate deploy`) — không còn là lệnh build thuần offline nữa,
+kể cả khi chạy local.
 
 ## Checklist Phase 2 — tự kiểm tra
 

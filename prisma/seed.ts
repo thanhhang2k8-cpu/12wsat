@@ -1,27 +1,56 @@
 import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { hash } from "@node-rs/argon2";
+import { hashPassword } from "../src/lib/auth/password";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-const ARGON2_OPTS = { algorithm: 2 as const, memoryCost: 19456, timeCost: 2, parallelism: 1 };
+// Same hashPassword() used by the login flow (src/lib/auth/session.ts +
+// src/lib/actions/auth.ts) — one place decides the argon2id parameters, so
+// a hash written by seeding can never drift from what login verifies against.
 
-async function main() {
-  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@12wsat.local";
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "change-me-now-123";
-
-  const admin = await prisma.user.upsert({
-    where: { email: adminEmail },
+async function upsertUser(opts: {
+  email: string;
+  password: string;
+  fullName: string;
+  role: "ADMIN" | "STUDENT";
+  cohortId?: string;
+  maxDevices?: number;
+}) {
+  return prisma.user.upsert({
+    where: { email: opts.email },
+    // Deliberately empty: re-running the seed must never reset a password
+    // an admin already changed through /admin/users, or flip someone back
+    // to ACTIVE after being suspended. Seeding only ever creates.
     update: {},
     create: {
-      email: adminEmail,
-      fullName: "Mentor",
-      passwordHash: await hash(adminPassword, ARGON2_OPTS),
-      role: "ADMIN",
-      maxDevices: 5,
+      email: opts.email,
+      fullName: opts.fullName,
+      passwordHash: await hashPassword(opts.password),
+      role: opts.role,
+      cohortId: opts.cohortId,
+      maxDevices: opts.maxDevices ?? 2,
     },
+  });
+}
+
+async function main() {
+  const adminEmail = process.env.SEED_ADMIN_EMAIL;
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminEmail || !adminPassword) {
+    throw new Error(
+      "SEED_ADMIN_EMAIL và SEED_ADMIN_PASSWORD phải được đặt trong .env (hoặc biến môi trường Vercel) " +
+        "trước khi chạy seed — không có admin mặc định để tránh lộ mật khẩu đoán được.",
+    );
+  }
+
+  const admin = await upsertUser({
+    email: adminEmail,
+    password: adminPassword,
+    fullName: process.env.SEED_ADMIN_NAME ?? "Mentor",
+    role: "ADMIN",
+    maxDevices: 5,
   });
 
   const cohort = await prisma.cohort.upsert({
@@ -30,30 +59,37 @@ async function main() {
     create: { name: "SAT — Lớp T8" },
   });
 
-  const student1 = await prisma.user.upsert({
-    where: { email: "ha@12wsat.local" },
-    update: {},
-    create: {
-      email: "ha@12wsat.local",
-      fullName: "Nguyễn Thị Hà",
-      passwordHash: await hash("hocvien123", ARGON2_OPTS),
+  // A real student account, only created when explicitly configured — set
+  // SEED_STUDENT_EMAIL / SEED_STUDENT_PASSWORD (and optionally
+  // SEED_STUDENT_NAME) to seed it, the same way as the admin above.
+  let realStudentEmail: string | null = null;
+  if (process.env.SEED_STUDENT_EMAIL && process.env.SEED_STUDENT_PASSWORD) {
+    const realStudent = await upsertUser({
+      email: process.env.SEED_STUDENT_EMAIL,
+      password: process.env.SEED_STUDENT_PASSWORD,
+      fullName: process.env.SEED_STUDENT_NAME ?? "Học viên",
       role: "STUDENT",
       cohortId: cohort.id,
-      maxDevices: 2,
-    },
-  });
+    });
+    realStudentEmail = realStudent.email;
+  }
 
-  const student2 = await prisma.user.upsert({
-    where: { email: "minh@12wsat.local" },
-    update: {},
-    create: {
-      email: "minh@12wsat.local",
-      fullName: "Trần Quang Minh",
-      passwordHash: await hash("hocvien123", ARGON2_OPTS),
-      role: "STUDENT",
-      cohortId: cohort.id,
-      maxDevices: 2,
-    },
+  // Demo accounts — always present, harmless placeholders for quick manual
+  // testing. Not meant to be real logins; feel free to delete them from
+  // /admin/users once you have real students.
+  const student1 = await upsertUser({
+    email: "ha@12wsat.local",
+    password: "hocvien123",
+    fullName: "Nguyễn Thị Hà",
+    role: "STUDENT",
+    cohortId: cohort.id,
+  });
+  const student2 = await upsertUser({
+    email: "minh@12wsat.local",
+    password: "hocvien123",
+    fullName: "Trần Quang Minh",
+    role: "STUDENT",
+    cohortId: cohort.id,
   });
 
   const existingTest = await prisma.test.findFirst({ where: { title: "Đề mẫu — Reading & Writing (rút gọn)" } });
@@ -140,9 +176,10 @@ async function main() {
   }
 
   console.log("Seed xong:");
-  console.log(`  Admin:    ${admin.email} / mật khẩu trong SEED_ADMIN_PASSWORD (.env)`);
-  console.log(`  Học viên: ${student1.email} / hocvien123`);
-  console.log(`  Học viên: ${student2.email} / hocvien123`);
+  console.log(`  Admin:    ${admin.email}`);
+  if (realStudentEmail) console.log(`  Học viên: ${realStudentEmail}`);
+  console.log(`  Học viên (demo): ${student1.email} / hocvien123`);
+  console.log(`  Học viên (demo): ${student2.email} / hocvien123`);
   console.log(`  Đề mẫu:   đã publish + giao cho nhóm "${cohort.name}"`);
 }
 

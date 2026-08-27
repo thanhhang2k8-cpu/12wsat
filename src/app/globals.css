@@ -64,6 +64,22 @@
   }
 }
 
+@keyframes mascot-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.1); }
+}
+.mascot-eye {
+  transform-origin: center;
+  animation: mascot-blink 4.5s ease-in-out infinite;
+}
+@keyframes mascot-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(-2deg); }
+}
+.mascot-bob {
+  animation: mascot-bob 3s ease-in-out infinite;
+}
+
 body {
   background: var(--color-paper);
   color: var(--color-ink);
