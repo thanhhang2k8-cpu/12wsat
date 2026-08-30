@@ -4,11 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma migrate deploy && next build",
+    "build": "prisma migrate deploy && next build && npm run seed",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx prisma/seed.ts",
-    "postbuild": "npm run seed"
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
