@@ -51,6 +51,7 @@ model User {
   createdTests  Test[]       @relation("TestCreatedBy")
   uploadedFiles SourceFile[]
   assignments   Assignment[]
+  attempts      Attempt[]
 
   @@index([cohortId])
 }
@@ -196,19 +197,20 @@ model ParseJob {
 }
 
 model Test {
-  id            String     @id @default(cuid())
-  title         String
-  type          TestType   @default(FULL_TEST)
-  status        TestStatus @default(DRAFT)
-  timedMode     TimedMode  @default(TIMED)
-  allowRetakes  Int        @default(1)
-  version       Int        @default(1)
-  rootTestId    String? // points to the first version when this is a re-published edit
-  rootTest      Test?      @relation("TestVersions", fields: [rootTestId], references: [id])
-  laterVersions Test[]     @relation("TestVersions")
-  publishedAt   DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id                   String     @id @default(cuid())
+  title                String
+  type                 TestType   @default(FULL_TEST)
+  status               TestStatus @default(DRAFT)
+  timedMode            TimedMode  @default(TIMED)
+  allowRetakes         Int        @default(1)
+  adaptiveThresholdPct Int        @default(60) // module 1 raw-score % at/above which module 2 is the HARD variant
+  version              Int        @default(1)
+  rootTestId           String? // points to the first version when this is a re-published edit
+  rootTest             Test?      @relation("TestVersions", fields: [rootTestId], references: [id])
+  laterVersions        Test[]     @relation("TestVersions")
+  publishedAt          DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
 
   createdByUserId String?
   createdByUser   User?   @relation("TestCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
@@ -218,6 +220,7 @@ model Test {
   parseJobs   ParseJob[]
   scoreScales ScoreScale[]
   assignments Assignment[]
+  attempts    Attempt[]
 
   @@index([status])
   @@index([rootTestId])
@@ -233,7 +236,8 @@ model Module {
   timeLimitSec   Int
   orderIndex     Int
 
-  questions Question[]
+  questions      Question[]
+  attemptModules AttemptModule[]
 
   @@index([testId])
 }
@@ -257,8 +261,10 @@ model Question {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  choices Choice[]
-  images  QuestionImage[]
+  choices        Choice[]
+  images         QuestionImage[]
+  attemptAnswers AttemptAnswer[]
+  annotations    Annotation[]
 
   @@index([moduleId])
   @@index([domain, skill, difficulty])
@@ -314,4 +320,97 @@ model Assignment {
   @@index([testId])
   @@index([cohortId])
   @@index([userId])
+}
+
+// ---------------------------------------------------------------------
+// Phase 3 — Real Test player: timer, adaptive branching, tools,
+// autosave/resume, scoring, results.
+// ---------------------------------------------------------------------
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  ABANDONED
+}
+
+model Attempt {
+  id                   String        @id @default(cuid())
+  userId               String
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testId               String
+  test                 Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
+  status               AttemptStatus @default(IN_PROGRESS)
+  startedAt            DateTime      @default(now())
+  submittedAt          DateTime?
+  currentModuleId      String?
+  scaledScoreTotal     Int?
+  scaledScoreBySection Json? // { READING_WRITING: 680, MATH: 630 }
+  rawScoreBySection    Json? // { READING_WRITING: 21, MATH: 18 }
+
+  modules     AttemptModule[]
+  answers     AttemptAnswer[]
+  annotations Annotation[]
+  tabSwitches TabSwitchLog[]
+
+  @@index([userId, testId])
+  @@index([status])
+}
+
+model AttemptModule {
+  id             String    @id @default(cuid())
+  attemptId      String
+  attempt        Attempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  moduleId       String
+  module         Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  orderInAttempt Int // 0,1,2,3 — the order this module was taken in, for this attempt
+  startedAt      DateTime  @default(now())
+  submittedAt    DateTime?
+  deadline       DateTime? // null when untimed; server-authoritative, never trust client clock
+  lastAutosaveAt DateTime  @default(now())
+
+  @@unique([attemptId, moduleId])
+  @@index([attemptId])
+}
+
+model AttemptAnswer {
+  id            String    @id @default(cuid())
+  attemptId     String
+  attempt       Attempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedLabel String? // MCQ choice label, e.g. "B"
+  gridInValue   String? // raw text the student typed
+  isCorrect     Boolean? // null until graded at module submit
+  flagged       Boolean   @default(false)
+  strikeouts    Json      @default("[]") // string[] of eliminated choice labels
+  timeSpentSec  Int       @default(0)
+  answeredAt    DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+}
+
+model Annotation {
+  id         String   @id @default(cuid())
+  attemptId  String
+  attempt    Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  rangeStart Int
+  rangeEnd   Int
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([attemptId, questionId])
+}
+
+model TabSwitchLog {
+  id          String   @id @default(cuid())
+  attemptId   String
+  attempt     Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  occurredAt  DateTime @default(now())
+  durationSec Int?
+
+  @@index([attemptId])
 }

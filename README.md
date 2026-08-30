@@ -1,10 +1,11 @@
 # 12WSAT
 
 Web luyện SAT nội bộ, mời riêng — không có trang đăng ký công khai. Repo này
-đang ở **Phase 2**: Phase 1 (tài khoản, thiết bị, session) cộng luồng nội dung
-đề thi cho admin — upload PDF/DOCX/ảnh → AI (Claude) quét thành câu hỏi có cấu
-trúc → editor 2 cột duyệt/sửa → publish → giao đề. Màn hình làm bài cho học
-viên (timer, adaptive, chấm điểm) là Phase 3.
+đang ở **Phase 3**: Phase 1 (tài khoản, thiết bị, session), Phase 2 (luồng
+nội dung đề thi cho admin — upload PDF/DOCX/ảnh → AI (Claude) quét thành câu
+hỏi có cấu trúc → editor 2 cột duyệt/sửa → publish → giao đề), và Phase 3
+(màn hình làm bài "Real Test" cho học viên — timer, adaptive theo module,
+tự chấm điểm) đều đã xong.
 
 ## Stack
 
@@ -84,11 +85,12 @@ nhau trong code.
 `next build` chỉ biên dịch code — nó **không** tự tạo bảng trong database
 hay tạo tài khoản admin. Nếu bạn deploy mà chưa từng chạy migration + seed
 nhắm vào đúng database production, sẽ không có admin nào để đăng nhập dù
-build xanh. Để tránh việc này, script `build` trong `package.json` đã được
-nối thêm `prisma migrate deploy` (tạo bảng) và một bước `postbuild` chạy
-`npm run seed` (tạo/đảm bảo có admin) — nghĩa là **mỗi lần Vercel build lại
-đều tự làm 2 việc đó**, bạn không cần SSH hay chạy lệnh tay. Việc bạn cần
-làm chỉ là:
+build xanh. Để tránh việc này, script `build` trong `package.json` là một
+chuỗi `prisma migrate deploy && next build && npm run seed` — cố tình gộp
+cả 3 bước vào **một** script `build` duy nhất (không tách `postbuild` riêng,
+vì Vercel tổng hợp lệnh build theo cách không đảm bảo chạy `postbuild` của
+npm) — nghĩa là **mỗi lần Vercel build lại đều tự làm cả 3 việc đó**, bạn
+không cần SSH hay chạy lệnh tay. Việc bạn cần làm chỉ là:
 
 1. Vào Vercel → Project → **Settings → Environment Variables**, thêm ít nhất:
    `DATABASE_URL`, `SESSION_SECRET`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`
@@ -110,6 +112,17 @@ viện hash mật khẩu `@node-rs/argon2` có phần native code, và nếu Nex
 serverless dù chạy `next dev` ở máy bạn vẫn ổn. `next.config.ts` đã khai báo
 `serverExternalPackages` cho gói này (và `@prisma/adapter-pg`/`pg`) để tránh
 đúng lỗi đó.
+
+Một nguyên nhân khác gây cảm giác "bấm Đăng nhập không hiện gì": tài khoản
+đã đăng nhập đủ `maxDevices` (mặc định 2) thiết bị — ví dụ do tự test đi
+test lại nhiều lần bằng các trình duyệt/thiết bị "mới" khác nhau. Khi đó
+form login **không redirect** và **có** hiện thông báo lỗi màu đỏ ngay dưới
+ô mật khẩu (`"Tài khoản đã đăng nhập trên tối đa N thiết bị..."`) — nếu
+không thấy thông báo này xuất hiện dù đợi vài giây, mở DevTools → tab
+Network, xem request `POST /login` trả về status gì (401/403 nghĩa là
+Vercel Deployment Protection đang chặn request trước khi tới được code của
+app — tắt ở Settings → Deployment Protection cho môi trường Production).
+Vào `/admin/users/<id>` để gỡ bớt thiết bị cũ nếu đúng là do hết slot.
 
 ## Xác thực & phiên đăng nhập — cách hoạt động
 
@@ -178,6 +191,55 @@ serverless dù chạy `next dev` ở máy bạn vẫn ổn. `next.config.ts` đ�
   thuộc chất lượng file gốc. Hệ thống tối ưu bằng cách gắn cờ mọi câu AI
   không chắc thay vì đoán liều; bạn tự đo tỉ lệ thật theo từng lần upload.
 
+## Màn hình làm bài (Phase 3) — cách hoạt động
+
+- **`/dashboard/real-test`** liệt kê các đề đã giao cho học viên đang đăng
+  nhập (`AssignmentGroup`/`AssignmentUser`, trong khoảng ngày mở/đóng), kèm
+  trạng thái attempt hiện tại (chưa làm / đang làm dở / đã nộp).
+- **Adaptive theo module**, đúng mô hình Digital SAT: mỗi môn (Reading &
+  Writing, Math) có 2 module. Module 1 luôn là bản chuẩn; sau khi nộp,
+  `pickNextModule` (`src/lib/testPlayer/adaptive.ts`) chọn module 2 bản
+  **EASY** hay **HARD** dựa trên % câu đúng ở module 1 so với
+  `Test.adaptiveThresholdPct` (admin nhập khi tạo bảng quy đổi điểm).
+- **Timer server-authoritative.** Server tính `remainingSec` mỗi lần render
+  từ `AttemptModule.deadline`; client chỉ đếm ngược cục bộ mỗi giây cho mượt,
+  và đồng bộ lại mỗi 5 giây qua `heartbeatAction` — hàm này cũng tự nộp
+  module nếu phát hiện đã hết giờ, kể cả khi học viên đóng tab mà không bấm
+  "Nộp module" (lần tải trang kế tiếp `AttemptPage` cũng tự phát hiện +
+  nộp hộ nếu `deadline` đã qua). Đề có thể đặt `timedMode = UNTIMED` để bỏ
+  hoàn toàn timer (dùng cho luyện tập không tính giờ ở phase sau).
+- **Tự lưu (autosave) từng câu**, không cần bấm nút lưu — mỗi lần chọn đáp
+  án, gõ grid-in, gắn cờ, hoặc gạch bỏ một lựa chọn đều gọi `saveAnswerAction`
+  ngầm (React `startTransition`), nên rớt mạng/đóng tab giữa chừng không mất
+  câu đã làm.
+- **Grid-in so khớp theo giá trị số**, không so chuỗi — `"3/5"` và `"0.6"`
+  được coi là cùng một đáp án đúng (`src/lib/testPlayer/grading.ts`).
+- **Chấm điểm**: raw score mỗi môn → tra `ScoreScale` (bảng admin nhập theo
+  từng đề) ra điểm quy đổi 200–800/môn, cộng lại thành tổng 400–1600. Trang
+  `/attempts/<id>/results` hiện điểm tổng, điểm từng môn, tỉ lệ đúng theo
+  domain, danh sách câu sai kèm lời giải (bấm để mở rộng), tổng thời gian
+  làm bài, và số lần rời tab trong lúc thi (`TabSwitchLog`, ghi nhận nhưng
+  **không** khoá bài hay cảnh cáo — xem giới hạn bên dưới).
+
+### Giới hạn đã biết ở Phase 3 (nói thẳng, không giấu)
+
+- **Chưa có UI highlight/gạch chân đoạn văn** dù model `Annotation` đã có
+  sẵn trong schema — hiện chỉ có gạch bỏ (strikeout) từng lựa chọn đáp án,
+  không phải highlight tự do trong passage. Cần một phase riêng cho việc
+  chọn text + lưu vị trí.
+- **Không có máy tính Desmos nhúng** cho phần Math (Digital SAT thật có).
+- **Không có reference sheet** (công thức hình học) hiển thị trong lúc làm
+  Math.
+- **Rời tab chỉ được ghi log, không bị chặn/cảnh cáo/khoá bài** — đủ để
+  mentor xem lại ai rời tab bao nhiêu lần sau khi thi xong, nhưng không
+  phải cơ chế chống gian lận thời gian thực. Việc khoá lockdown-browser thật
+  sự nằm ngoài phạm vi ứng dụng web.
+- **Cơ chế tự nộp khi hết giờ mới được kiểm tra qua đọc code, chưa chạy thử
+  một lượt hết giờ thật** (đợi hàng chục phút cho `deadline` tới trong lúc
+  test không thực tế) — logic nằm ở `AttemptPage` (kiểm tra `deadline` mỗi
+  lần render) và `heartbeatAction` (kiểm tra mỗi 5s trong lúc học viên đang
+  mở trang), cả hai đều gọi chung `submitModuleAction(..., { auto: true })`.
+
 ## Backup / restore database
 
 Dùng công cụ chuẩn của Postgres, không cần script riêng:
@@ -198,7 +260,7 @@ trên chỉ để backup thủ công/di chuyển dữ liệu.
 
 ```bash
 npm run dev            # dev server
-npm run build           # build production — chạy migrate deploy, next build, rồi seed (postbuild)
+npm run build           # build production — chạy migrate deploy, next build, rồi seed (trong cùng 1 script)
 npx prisma studio        # xem/sửa dữ liệu qua UI
 npx prisma migrate dev   # tạo + áp dụng migration mới sau khi sửa schema.prisma (chỉ dùng khi dev)
 npm run seed              # (tạo lại) admin + học viên + 1 đề mẫu ngắn
@@ -223,6 +285,25 @@ kể cả khi chạy local.
 5. Mở `/api/storage/...` khi chưa đăng nhập (hoặc đăng nhập bằng tài khoản
    học viên) → 403, không lộ nội dung file.
 6. `npm run build` chạy sạch, không lỗi type.
+
+## Checklist Phase 3 — tự kiểm tra
+
+1. Đăng nhập bằng một tài khoản học viên có đề được giao (seed sẵn
+   `ha@12wsat.local` / `hocvien123`), vào `/dashboard/real-test`, bấm "Bắt
+   đầu làm bài" → vào `/attempts/<id>` với module 1 R&W, còn giờ đếm ngược.
+2. Trả lời đúng phần lớn câu ở module 1 → nộp → module 2 phải là bản
+   **HARD**; trả lời sai phần lớn → module 2 phải là bản **EASY** (kiểm tra
+   qua nhãn "module 2 — HARD/EASY" hiện trên trang).
+3. Gắn cờ một câu, gạch bỏ một lựa chọn, rồi **reload trang** (F5) → cả hai
+   trạng thái phải còn nguyên (autosave qua `saveAnswerAction`).
+4. Làm hết cả 4 module (R&W ×2, Math ×2) → tự chuyển tới
+   `/attempts/<id>/results`, thấy điểm tổng, điểm từng môn, danh sách câu
+   sai (nếu có) kèm lời giải mở rộng được.
+5. Nhập một đáp án grid-in dạng phân số (ví dụ `3/5`) khi đáp án đúng lưu là
+   thập phân (`0.6`, hoặc ngược lại) → vẫn được chấm đúng.
+6. Vào lại `/attempts/<id>` của một attempt **đã nộp** (`SUBMITTED`) →
+   redirect thẳng tới trang kết quả, không cho làm lại module đã nộp.
+7. `npm run build` chạy sạch, không lỗi type.
 
 ## Checklist Phase 1 — tự kiểm tra
 
@@ -249,9 +330,14 @@ kể cả khi chạy local.
   điều hành).
 
 **Phase 2:**
-- Màn hình làm bài cho học viên (Real Test, Luyện theo dạng, Question Bank,
-  Vocab Notebook, Sổ lỗi) — Phase 3 trở đi.
 - Công cụ crop ảnh trực tiếp từ PDF (xem "Giới hạn đã biết" ở trên).
 - Hàng đợi parse chạy nền thay vì đồng bộ trong request.
-- Rate limit theo API đề, log số lần rời tab, watermark chống copy — nằm ở
-  Phase 6, khi đã có nội dung học viên thực sự xem được để bảo vệ.
+
+**Phase 3:**
+- Chỉ có "Real Test" (đề đầy đủ, adaptive, tính giờ/chấm điểm). "Luyện theo
+  dạng", Question Bank, Vocab Notebook, Sổ lỗi — nằm ở phase sau.
+- Highlight/gạch chân đoạn văn tự do (model `Annotation` đã có, chưa có UI).
+- Máy tính Desmos nhúng và reference sheet cho phần Math.
+- Chặn/cảnh cáo khi rời tab lúc thi — hiện chỉ ghi log, không khoá bài.
+- Rate limit theo API đề, watermark chống copy — nằm ở Phase 6, khi đã có
+  nội dung học viên thực sự xem được để bảo vệ.

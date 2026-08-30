@@ -175,6 +175,186 @@ async function main() {
     });
   }
 
+  // A second, short-timed sample exercising Phase 3: two sections, adaptive
+  // module 2 (EASY vs HARD), timer, scoring. Time limits are shortened to a
+  // few minutes on purpose — this is a fixture for testing the player, not
+  // real exam content.
+  const existingAdaptiveTest = await prisma.test.findFirst({ where: { title: "Đề mẫu — Adaptive (rút gọn để test Phase 3)" } });
+  if (!existingAdaptiveTest) {
+    const mkChoices = (correct: string) =>
+      ["A", "B", "C", "D"].map((label, i) => ({
+        label,
+        textMd: label === correct ? "đáp án đúng" : `đáp án sai ${label}`,
+        orderIndex: i,
+      }));
+
+    const adaptiveTest = await prisma.test.create({
+      data: {
+        title: "Đề mẫu — Adaptive (rút gọn để test Phase 3)",
+        type: "FULL_TEST",
+        status: "PUBLISHED",
+        timedMode: "TIMED",
+        publishedAt: new Date(),
+        createdByUserId: admin.id,
+        modules: {
+          create: [
+            {
+              section: "READING_WRITING",
+              moduleNumber: 1,
+              difficultyTier: "STANDARD",
+              timeLimitSec: 5 * 60,
+              orderIndex: 0,
+              questions: {
+                create: [1, 2].map((n) => ({
+                  number: n,
+                  orderIndex: n - 1,
+                  stemMd: `[RW module 1] Câu ${n} — chọn đáp án đúng.`,
+                  type: "MCQ",
+                  correctAnswer: "A",
+                  explanationMd: "Đây là câu mẫu để test bộ chấm điểm.",
+                  domain: "Information and Ideas",
+                  skill: "Central Ideas & Details",
+                  difficulty: "MEDIUM",
+                  confidence: 1,
+                  needsReview: false,
+                  choices: { create: mkChoices("A") },
+                })),
+              },
+            },
+            {
+              section: "READING_WRITING",
+              moduleNumber: 2,
+              difficultyTier: "EASY",
+              timeLimitSec: 5 * 60,
+              orderIndex: 1,
+              questions: {
+                create: [{
+                  number: 3,
+                  orderIndex: 0,
+                  stemMd: "[RW module 2 — EASY] Câu 3 — chọn đáp án đúng.",
+                  type: "MCQ",
+                  correctAnswer: "A",
+                  explanationMd: "Câu mẫu bản dễ.",
+                  domain: "Craft and Structure",
+                  skill: "Words in Context",
+                  difficulty: "EASY",
+                  confidence: 1,
+                  needsReview: false,
+                  choices: { create: mkChoices("A") },
+                }],
+              },
+            },
+            {
+              section: "READING_WRITING",
+              moduleNumber: 2,
+              difficultyTier: "HARD",
+              timeLimitSec: 5 * 60,
+              orderIndex: 2,
+              questions: {
+                create: [{
+                  number: 3,
+                  orderIndex: 0,
+                  stemMd: "[RW module 2 — HARD] Câu 3 — chọn đáp án đúng.",
+                  type: "MCQ",
+                  correctAnswer: "A",
+                  explanationMd: "Câu mẫu bản khó.",
+                  domain: "Craft and Structure",
+                  skill: "Words in Context",
+                  difficulty: "HARD",
+                  confidence: 1,
+                  needsReview: false,
+                  choices: { create: mkChoices("A") },
+                }],
+              },
+            },
+            {
+              section: "MATH",
+              moduleNumber: 1,
+              difficultyTier: "STANDARD",
+              timeLimitSec: 5 * 60,
+              orderIndex: 3,
+              questions: {
+                create: [4, 5].map((n) => ({
+                  number: n,
+                  orderIndex: n - 4,
+                  stemMd: `[Math module 1] Câu ${n} — chọn đáp án đúng.`,
+                  type: "MCQ",
+                  correctAnswer: "A",
+                  explanationMd: "Câu mẫu Math.",
+                  domain: "Algebra",
+                  skill: "Linear equations",
+                  difficulty: "MEDIUM",
+                  confidence: 1,
+                  needsReview: false,
+                  choices: { create: mkChoices("A") },
+                })),
+              },
+            },
+            {
+              section: "MATH",
+              moduleNumber: 2,
+              difficultyTier: "EASY",
+              timeLimitSec: 5 * 60,
+              orderIndex: 4,
+              questions: {
+                create: [{
+                  number: 6,
+                  orderIndex: 0,
+                  stemMd: "[Math module 2 — EASY] Câu 6.",
+                  type: "GRID_IN",
+                  correctAnswer: ["3/5", "0.6"],
+                  explanationMd: "3/5 = 0.6 — cả hai cách viết đều được chấp nhận.",
+                  domain: "Problem-Solving and Data Analysis",
+                  skill: "Ratios",
+                  difficulty: "EASY",
+                  confidence: 1,
+                  needsReview: false,
+                }],
+              },
+            },
+            {
+              section: "MATH",
+              moduleNumber: 2,
+              difficultyTier: "HARD",
+              timeLimitSec: 5 * 60,
+              orderIndex: 5,
+              questions: {
+                create: [{
+                  number: 6,
+                  orderIndex: 0,
+                  stemMd: "[Math module 2 — HARD] Câu 6.",
+                  type: "GRID_IN",
+                  correctAnswer: ["3/5", "0.6"],
+                  explanationMd: "3/5 = 0.6 — cả hai cách viết đều được chấp nhận.",
+                  domain: "Problem-Solving and Data Analysis",
+                  skill: "Ratios",
+                  difficulty: "HARD",
+                  confidence: 1,
+                  needsReview: false,
+                }],
+              },
+            },
+          ],
+        },
+        scoreScales: {
+          create: [
+            { section: "READING_WRITING", rawScore: 3, scaledScore: 800 },
+            { section: "READING_WRITING", rawScore: 2, scaledScore: 700 },
+            { section: "READING_WRITING", rawScore: 1, scaledScore: 550 },
+            { section: "READING_WRITING", rawScore: 0, scaledScore: 400 },
+            { section: "MATH", rawScore: 3, scaledScore: 800 },
+            { section: "MATH", rawScore: 2, scaledScore: 700 },
+            { section: "MATH", rawScore: 1, scaledScore: 550 },
+            { section: "MATH", rawScore: 0, scaledScore: 400 },
+          ],
+        },
+      },
+    });
+    await prisma.assignment.create({
+      data: { testId: adaptiveTest.id, cohortId: cohort.id, maxAttempts: 5 },
+    });
+  }
+
   console.log("Seed xong:");
   console.log(`  Admin:    ${admin.email}`);
   if (realStudentEmail) console.log(`  Học viên: ${realStudentEmail}`);
