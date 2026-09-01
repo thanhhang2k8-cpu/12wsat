@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
-import { WrongAnswerRow } from "./WrongAnswerRow";
+import { WrongAnswerRow } from "@/components/WrongAnswerRow";
 
 export const dynamic = "force-dynamic";
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MathText } from "@/components/MathText";
 
 export function WrongAnswerRow({
   number,
@@ -25,8 +26,8 @@ export function WrongAnswerRow({
         </button>
       </div>
       {open && (
-        <div className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-muted">
-          {explanationMd ?? "Chưa có lời giải cho câu này."}
+        <div className="mt-2 text-[13px] leading-relaxed text-muted">
+          {explanationMd ? <MathText text={explanationMd} /> : "Chưa có lời giải cho câu này."}
         </div>
       )}
     </div>

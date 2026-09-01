@@ -8,8 +8,8 @@ import type { User } from "@/generated/prisma/client";
 const navItems = [
   { label: "Tổng quan", href: "/dashboard", enabled: true },
   { label: "Real Test", href: "/dashboard/real-test", enabled: true },
-  { label: "Luyện theo dạng", href: "/dashboard/practice", enabled: false },
-  { label: "Question Bank", href: "/dashboard/question-bank", enabled: false },
+  { label: "Luyện tập / Question Bank", href: "/dashboard/practice", enabled: true },
+  { label: "Sổ lỗi", href: "/dashboard/wrong-answers", enabled: true },
   { label: "Vocab Notebook", href: "/dashboard/vocab", enabled: false },
 ];
 

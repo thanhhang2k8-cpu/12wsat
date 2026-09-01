@@ -1,11 +1,11 @@
 # 12WSAT
 
 Web luyện SAT nội bộ, mời riêng — không có trang đăng ký công khai. Repo này
-đang ở **Phase 3**: Phase 1 (tài khoản, thiết bị, session), Phase 2 (luồng
-nội dung đề thi cho admin — upload PDF/DOCX/ảnh → AI (Claude) quét thành câu
-hỏi có cấu trúc → editor 2 cột duyệt/sửa → publish → giao đề), và Phase 3
-(màn hình làm bài "Real Test" cho học viên — timer, adaptive theo module,
-tự chấm điểm) đều đã xong.
+đang ở **Phase 4**: Phase 1 (tài khoản, thiết bị, session), Phase 2 (luồng
+nội dung đề thi cho admin), Phase 3 (màn hình làm bài "Real Test" — timer,
+adaptive theo module, tự chấm điểm), và Phase 4 (Luyện tập / Question Bank
+theo domain-skill, Sổ lỗi) đều đã xong. Phase 5 (Vocab Notebook + SRS) và
+Phase 6 (chống copy/watermark, admin analytics, polish) đang làm tiếp.
 
 ## Stack
 
@@ -240,6 +240,25 @@ Vào `/admin/users/<id>` để gỡ bớt thiết bị cũ nếu đúng là do h
   lần render) và `heartbeatAction` (kiểm tra mỗi 5s trong lúc học viên đang
   mở trang), cả hai đều gọi chung `submitModuleAction(..., { auto: true })`.
 
+## Luyện tập / Question Bank / Sổ lỗi (Phase 4) — cách hoạt động
+
+- **`/dashboard/practice`** là một trang duy nhất cho cả "Luyện theo dạng" và
+  "Question Bank" — lọc theo môn/domain/skill/độ khó, thấy ngay danh sách câu
+  phù hợp (tick chọn từng câu hoặc "Chọn tất cả"), bấm "Bắt đầu luyện tập".
+  Có thêm tick "Chỉ hiện câu từng làm sai" để luyện lại đúng những câu yếu.
+- **Không tính giờ, không adaptive** — khác hẳn Real Test. Mỗi câu trả lời
+  xong bấm "Kiểm tra" là biết đúng/sai **ngay lập tức** kèm lời giải, không
+  phải đợi nộp cả module.
+- **`PracticeSet`** là một hàng đợi câu hỏi (mảng id, theo thứ tự đã xáo trộn)
+  gắn với 1 học viên — độc lập với cấu trúc `Module` cứng nhắc của Real Test,
+  nên có thể trộn câu từ nhiều đề khác nhau trong cùng 1 lượt luyện.
+- **Sổ lỗi (`/dashboard/wrong-answers`)**: tính theo **lần làm gần nhất** của
+  mỗi câu (dù là ở Real Test hay ở Luyện tập) — làm đúng lại thì tự biến mất
+  khỏi danh sách, không cần thao tác "đánh dấu đã sửa" thủ công. Có nút
+  "Luyện lại N câu này" tạo thẳng một `PracticeSet` từ đúng các câu đang sai.
+- **Đánh dấu (bookmark)** một câu trong lúc luyện tập bằng nút ★ ở góc phải
+  trên — hiện chưa có trang riêng liệt kê các câu đã đánh dấu (xem "Chưa làm").
+
 ## Backup / restore database
 
 Dùng công cụ chuẩn của Postgres, không cần script riêng:
@@ -305,6 +324,21 @@ kể cả khi chạy local.
    redirect thẳng tới trang kết quả, không cho làm lại module đã nộp.
 7. `npm run build` chạy sạch, không lỗi type.
 
+## Checklist Phase 4 — tự kiểm tra
+
+1. Vào `/dashboard/practice`, lọc theo một domain bất kỳ → danh sách câu chỉ
+   còn đúng domain đó, đếm đúng số lượng hiển thị ở góc trên.
+2. Bỏ chọn vài câu (tick), bấm "Bắt đầu luyện tập" → số câu trong phiên luyện
+   đúng bằng số đã tick, không nhiều/ít hơn.
+3. Trả lời một câu sai có chủ đích → hiện "Sai rồi." + lời giải + đáp án đúng
+   (grid-in) hoặc tô xanh đáp án đúng/đỏ đáp án đã chọn (MCQ).
+4. Vào `/dashboard/wrong-answers` → câu vừa làm sai ở bước 3 xuất hiện trong
+   danh sách. Luyện lại đúng câu đó, trả lời đúng lần này → quay lại sổ lỗi,
+   câu đó đã biến mất.
+5. Bấm ★ đánh dấu một câu trong lúc luyện, reload trang → dấu ★ vẫn còn (lưu
+   trong DB, không phải state tạm client).
+6. `npm run build` chạy sạch, không lỗi type.
+
 ## Checklist Phase 1 — tự kiểm tra
 
 1. Không có route `/register` hay tương tự — tài khoản chỉ tạo được ở
@@ -334,10 +368,17 @@ kể cả khi chạy local.
 - Hàng đợi parse chạy nền thay vì đồng bộ trong request.
 
 **Phase 3:**
-- Chỉ có "Real Test" (đề đầy đủ, adaptive, tính giờ/chấm điểm). "Luyện theo
-  dạng", Question Bank, Vocab Notebook, Sổ lỗi — nằm ở phase sau.
 - Highlight/gạch chân đoạn văn tự do (model `Annotation` đã có, chưa có UI).
 - Máy tính Desmos nhúng và reference sheet cho phần Math.
-- Chặn/cảnh cáo khi rời tab lúc thi — hiện chỉ ghi log, không khoá bài.
-- Rate limit theo API đề, watermark chống copy — nằm ở Phase 6, khi đã có
-  nội dung học viên thực sự xem được để bảo vệ.
+- Chặn/cảnh cáo khi rời tab lúc thi — hiện chỉ ghi log, không khoá bài (dự
+  kiến ở Phase 6).
+
+**Phase 4:**
+- Chưa có trang riêng liệt kê **các câu đã đánh dấu (bookmark)** — model và
+  nút ★ đã có, chỉ thiếu màn hình xem lại danh sách đã đánh dấu (khác với
+  Sổ lỗi, vốn liệt kê câu *sai* chứ không phải câu được *đánh dấu*).
+- Không giới hạn số câu tối đa mỗi lượt luyện (Question Bank cho tick chọn
+  tuỳ ý) — với đề rất lớn, danh sách hiển thị bị cắt ở 60 câu/lần lọc.
+- Vocab Notebook, SRS — Phase 5.
+
+**Phase 5 & 6:** xem mục tổng quan ở đầu file — đang làm.

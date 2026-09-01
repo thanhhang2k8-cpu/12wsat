@@ -45,13 +45,16 @@ model User {
   cohortId String?
   cohort   Cohort? @relation(fields: [cohortId], references: [id])
 
-  devices       Device[]
-  sessions      Session[]
-  loginLogs     LoginLog[]
-  createdTests  Test[]       @relation("TestCreatedBy")
-  uploadedFiles SourceFile[]
-  assignments   Assignment[]
-  attempts      Attempt[]
+  devices          Device[]
+  sessions         Session[]
+  loginLogs        LoginLog[]
+  createdTests     Test[]            @relation("TestCreatedBy")
+  uploadedFiles    SourceFile[]
+  assignments      Assignment[]
+  attempts         Attempt[]
+  practiceSets     PracticeSet[]
+  practiceAttempts PracticeAttempt[]
+  bookmarks        Bookmark[]
 
   @@index([cohortId])
 }
@@ -261,10 +264,12 @@ model Question {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  choices        Choice[]
-  images         QuestionImage[]
-  attemptAnswers AttemptAnswer[]
-  annotations    Annotation[]
+  choices          Choice[]
+  images           QuestionImage[]
+  attemptAnswers   AttemptAnswer[]
+  annotations      Annotation[]
+  practiceAttempts PracticeAttempt[]
+  bookmarks        Bookmark[]
 
   @@index([moduleId])
   @@index([domain, skill, difficulty])
@@ -413,4 +418,49 @@ model TabSwitchLog {
   durationSec Int?
 
   @@index([attemptId])
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 — practice by type, Question Bank, bookmarks, wrong-answer log.
+// Untimed, ad-hoc, independent of the rigid Test/Module structure used
+// by the Real Test player — a practice set is just an ordered list of
+// question ids drawn from any published test.
+// ---------------------------------------------------------------------
+
+model PracticeSet {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionIds  Json // string[] — the order to practice in
+  currentIndex Int       @default(0)
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  @@index([userId])
+}
+
+model PracticeAttempt {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedLabel String?
+  gridInValue   String?
+  isCorrect     Boolean
+  answeredAt    DateTime @default(now())
+
+  @@index([userId, questionId, answeredAt])
+  @@index([userId, isCorrect])
+}
+
+model Bookmark {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, questionId])
 }
