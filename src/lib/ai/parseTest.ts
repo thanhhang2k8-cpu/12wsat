@@ -11,7 +11,10 @@ import {
 import { PARSE_TEST_SYSTEM_PROMPT, REPARSE_QUESTION_SYSTEM_PROMPT } from "./prompt";
 import { mockParseTest, mockParseQuestion } from "./mockParser";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5";
+// Sonnet balances accuracy and speed/cost well for structured document
+// extraction — Opus is markedly slower and pricier per page for this task.
+// Override with ANTHROPIC_MODEL if you want to try a different model.
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
 function client(): Anthropic {
   return new Anthropic();
