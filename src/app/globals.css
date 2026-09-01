@@ -2,7 +2,7 @@
 @import "katex/dist/katex.min.css";
 
 :root {
-  --color-paper: #f7f8f6;
+  --color-paper: #ffffff;
   --color-ink: #1c1c1a;
   --color-pen: #1f3f6e;
   --color-amber: #c9791f;

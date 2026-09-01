@@ -9,6 +9,7 @@ import {
   type FormState,
 } from "@/lib/actions/admin-tests";
 import { MathText } from "@/components/MathText";
+import { QuestionPreview } from "./QuestionPreview";
 import type { ReviewQuestion } from "./types";
 
 const emptyState: FormState = {};
@@ -34,6 +35,8 @@ export function QuestionEditor({ question, canReparse }: { question: ReviewQuest
   const [passage, setPassage] = useState(question.passageMd ?? "");
   const [stem, setStem] = useState(question.stemMd);
   const [explanation, setExplanation] = useState(question.explanationMd ?? "");
+  const [correctAnswer, setCorrectAnswer] = useState(answerToText(question.correctAnswer));
+  const [showPreview, setShowPreview] = useState(false);
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-6">
@@ -49,17 +52,39 @@ export function QuestionEditor({ question, canReparse }: { question: ReviewQuest
             <span className="font-mono text-[11px] text-muted">confidence {question.confidence.toFixed(2)}</span>
           )}
         </div>
-        {canReparse && (
+        <div className="flex items-center gap-4">
           <button
             type="button"
-            disabled={reparsePending}
-            onClick={() => startReparse(() => reparseQuestionAction(question.id))}
-            className="text-[12.5px] text-pen disabled:opacity-60"
+            onClick={() => setShowPreview((s) => !s)}
+            className="text-[12.5px] text-pen"
           >
-            {reparsePending ? "Đang nhờ AI parse lại…" : "Nhờ AI parse lại câu này"}
+            {showPreview ? "Đóng xem trước" : "👁 Xem trước như học viên sẽ thấy"}
           </button>
-        )}
+          {canReparse && (
+            <button
+              type="button"
+              disabled={reparsePending}
+              onClick={() => startReparse(() => reparseQuestionAction(question.id))}
+              className="text-[12.5px] text-pen disabled:opacity-60"
+            >
+              {reparsePending ? "Đang nhờ AI parse lại…" : "Nhờ AI parse lại câu này"}
+            </button>
+          )}
+        </div>
       </div>
+
+      {showPreview && (
+        <div className="mb-6">
+          <QuestionPreview
+            passageMd={passage}
+            stemMd={stem}
+            type={type}
+            choices={choices.map((c) => ({ label: c.label, text: c.text }))}
+            correctAnswer={correctAnswer}
+            images={question.images}
+          />
+        </div>
+      )}
 
       <form action={saveAction} className="flex flex-col gap-5" key={question.id}>
         <input type="hidden" name="questionId" value={question.id} />
@@ -162,7 +187,8 @@ export function QuestionEditor({ question, canReparse }: { question: ReviewQuest
             </span>
             <input
               name="correctAnswer"
-              defaultValue={answerToText(question.correctAnswer)}
+              value={correctAnswer}
+              onChange={(e) => setCorrectAnswer(e.target.value)}
               required
               className="border border-rule bg-paper px-3 py-2 font-mono text-[13.5px] outline-none focus:border-pen"
             />

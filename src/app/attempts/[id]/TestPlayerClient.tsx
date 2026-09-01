@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { saveAnswerAction, heartbeatAction, submitModuleAction, logTabSwitchAction } from "@/lib/actions/attempt";
+import { MathText } from "@/components/MathText";
 
 type Choice = { label: string; textMd: string };
 type QuestionImage = { id: string; note: string | null; url: string };
@@ -156,12 +157,11 @@ export function TestPlayerClient({
             {q.number}
           </div>
           {q.passageMd && (
-            <div
-              className="whitespace-pre-wrap text-[17px] leading-[1.7]"
+            <MathText
+              text={q.passageMd}
+              className="text-[17px] leading-[1.7]"
               style={{ fontFamily: "var(--font-reading), Georgia, serif", maxWidth: "66ch", userSelect: "none" }}
-            >
-              {q.passageMd}
-            </div>
+            />
           )}
           {q.images.length > 0 && (
             <div className="mt-5 flex flex-col gap-3">
@@ -178,9 +178,7 @@ export function TestPlayerClient({
             <span className="text-muted">Gạch bỏ đáp án: bấm vào vòng tròn bên phải mỗi lựa chọn</span>
           </div>
 
-          <div className="mb-5 text-[15px] leading-relaxed" style={{ userSelect: "none" }}>
-            {q.stemMd}
-          </div>
+          <MathText text={q.stemMd} className="mb-5 text-[15px] leading-relaxed" style={{ userSelect: "none" }} />
 
           {q.type === "MCQ" ? (
             <div className="flex flex-col border-t border-rule">
@@ -203,9 +201,11 @@ export function TestPlayerClient({
                     >
                       {c.label}
                     </button>
-                    <div className="flex-1 text-[14.5px]" style={{ textDecoration: struck ? "line-through" : "none", opacity: struck ? 0.4 : 1 }}>
-                      {c.textMd}
-                    </div>
+                    <MathText
+                      text={c.textMd}
+                      className="flex-1 text-[14.5px]"
+                      style={{ textDecoration: struck ? "line-through" : "none", opacity: struck ? 0.4 : 1 }}
+                    />
                     <button
                       type="button"
                       onClick={() => toggleStrikeout(c.label)}

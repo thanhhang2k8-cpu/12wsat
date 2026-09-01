@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, type CSSProperties } from "react";
 import katex from "katex";
 
 /**
@@ -8,11 +8,19 @@ import katex from "katex";
  * ($$...$$) LaTeX segments as real KaTeX, everything else as plain text.
  * Used both for the live editor preview and (later) the read-only views.
  */
-export function MathText({ text, className }: { text: string; className?: string }) {
+export function MathText({
+  text,
+  className,
+  style,
+}: {
+  text: string;
+  className?: string;
+  style?: CSSProperties;
+}) {
   const parts = useMemo(() => splitMath(text), [text]);
 
   return (
-    <div className={className} style={{ whiteSpace: "pre-wrap" }}>
+    <div className={className} style={{ whiteSpace: "pre-wrap", ...style }}>
       {parts.map((part, i) => {
         if (part.type === "text") return <Fragment key={i}>{part.value}</Fragment>;
         const html = katex.renderToString(part.value, {
