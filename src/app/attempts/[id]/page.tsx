@@ -76,6 +76,8 @@ export default async function AttemptPage({ params }: { params: Promise<{ id: st
       untimed={moduleWithQuestions.test.timedMode === "UNTIMED"}
       initialRemainingSec={remainingSec}
       questions={questions}
+      studentName={user.fullName}
+      studentEmail={user.email}
     />
   );
 }

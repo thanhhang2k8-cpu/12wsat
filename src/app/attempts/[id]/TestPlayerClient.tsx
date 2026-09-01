@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { saveAnswerAction, heartbeatAction, submitModuleAction, logTabSwitchAction } from "@/lib/actions/attempt";
 import { MathText } from "@/components/MathText";
+import { AntiCopyWatermark } from "@/components/AntiCopyWatermark";
 
 type Choice = { label: string; textMd: string };
 type QuestionImage = { id: string; note: string | null; url: string };
@@ -34,6 +35,8 @@ export function TestPlayerClient({
   untimed,
   initialRemainingSec,
   questions,
+  studentName,
+  studentEmail,
 }: {
   attemptId: string;
   attemptModuleId: string;
@@ -42,6 +45,8 @@ export function TestPlayerClient({
   untimed: boolean;
   initialRemainingSec: number | null;
   questions: Question[];
+  studentName: string;
+  studentEmail: string;
 }) {
   const [answers, setAnswers] = useState<Record<string, QuestionAnswer>>(() =>
     Object.fromEntries(questions.map((q) => [q.id, q.answer])),
@@ -119,6 +124,7 @@ export function TestPlayerClient({
   }
 
   return (
+    <AntiCopyWatermark label={`${studentName} · ${studentEmail}`} attemptId={attemptId}>
     <div className="relative flex h-screen flex-col bg-paper text-ink" style={{ fontFamily: "var(--font-ui), system-ui, sans-serif" }}>
       {tabBlurred && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-paper/90 backdrop-blur-sm">
@@ -316,5 +322,6 @@ export function TestPlayerClient({
         </div>
       </div>
     </div>
+    </AntiCopyWatermark>
   );
 }

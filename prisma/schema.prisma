@@ -57,6 +57,7 @@ model User {
   bookmarks        Bookmark[]
   vocabDecks       VocabDeck[]
   vocabWords       VocabWord[]
+  copyAttemptLogs  CopyAttemptLog[]
 
   @@index([cohortId])
 }
@@ -355,10 +356,11 @@ model Attempt {
   scaledScoreBySection Json? // { READING_WRITING: 680, MATH: 630 }
   rawScoreBySection    Json? // { READING_WRITING: 21, MATH: 18 }
 
-  modules     AttemptModule[]
-  answers     AttemptAnswer[]
-  annotations Annotation[]
-  tabSwitches TabSwitchLog[]
+  modules         AttemptModule[]
+  answers         AttemptAnswer[]
+  annotations     Annotation[]
+  tabSwitches     TabSwitchLog[]
+  copyAttemptLogs CopyAttemptLog[]
 
   @@index([userId, testId])
   @@index([status])
@@ -420,6 +422,28 @@ model TabSwitchLog {
   occurredAt  DateTime @default(now())
   durationSec Int?
 
+  @@index([attemptId])
+}
+
+enum CopyAttemptAction {
+  COPY
+  CUT
+  PRINT
+  CONTEXTMENU
+  PRINTSCREEN_SUSPECTED
+  WATERMARK_TAMPER
+}
+
+model CopyAttemptLog {
+  id        String            @id @default(cuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attemptId String?
+  attempt   Attempt?          @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  action    CopyAttemptAction
+  createdAt DateTime          @default(now())
+
+  @@index([userId, createdAt])
   @@index([attemptId])
 }
 

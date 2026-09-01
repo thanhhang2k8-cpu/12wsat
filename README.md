@@ -1,11 +1,12 @@
 # 12WSAT
 
 Web luyện SAT nội bộ, mời riêng — không có trang đăng ký công khai. Repo này
-đang ở **Phase 5**: Phase 1 (tài khoản, thiết bị, session), Phase 2 (luồng
-nội dung đề thi cho admin), Phase 3 (màn hình làm bài "Real Test"), Phase 4
-(Luyện tập / Question Bank, Sổ lỗi), và Phase 5 (Vocab Notebook + ôn tập
-ngắt quãng SM-2) đều đã xong. Phase 6 (chống copy/watermark, admin
-analytics, polish) đang làm tiếp.
+đã xong cả **6 phase** trong kế hoạch ban đầu: Phase 1 (tài khoản, thiết bị,
+session), Phase 2 (luồng nội dung đề thi cho admin), Phase 3 (màn hình làm
+bài "Real Test"), Phase 4 (Luyện tập / Question Bank, Sổ lỗi), Phase 5
+(Vocab Notebook + ôn tập ngắt quãng SM-2), và Phase 6 (chống copy/watermark
+khi thi thật, trang Phân tích cho admin, dashboard tổng quan). Các giới hạn
+đã biết còn lại (nói thẳng, không giấu) được liệt kê ở cuối file.
 
 ## Stack
 
@@ -290,6 +291,45 @@ Vào `/admin/users/<id>` để gỡ bớt thiết bị cũ nếu đúng là do h
   quay lại ngay trong lượt đó** (chỉ đến hạn lại từ lượt ôn tiếp theo) — để
   tránh vòng lặp vô hạn trong 1 phiên, đơn giản hơn so với SM-2 "chuẩn".
 
+## Chống copy/watermark + Phân tích cho admin (Phase 6) — cách hoạt động
+
+- **Watermark động** trong lúc làm Real Test: tên + email học viên lặp thành
+  lưới nghiêng, mờ, phủ toàn màn hình (`src/components/AntiCopyWatermark.tsx`)
+  — mục đích chính là **truy vết** nếu ảnh chụp màn hình bị phát tán, không
+  phải để chặn chụp.
+- **Chặn được**: copy/cut (`Ctrl/Cmd+C/X`), chuột phải (context menu), in
+  trang (`Ctrl/Cmd+P`), lưu trang (`Ctrl/Cmd+S`), và bôi đen chọn văn bản
+  (trừ trong các ô nhập liệu như grid-in, vẫn chọn/sửa bình thường). Mỗi lần
+  chặn được ghi vào `CopyAttemptLog`.
+- **Không chặn được và không giả vờ chặn được**: chụp màn hình bằng công cụ
+  hệ điều hành (Snipping Tool, Cmd+Shift+4...) hay chụp bằng điện thoại khác
+  — đây là giới hạn vật lý, watermark là lớp phòng vệ duy nhất khả thi cho
+  trường hợp này. Có bắt phím `PrintScreen` khi trình duyệt/OS bắn được sự
+  kiện (không đáng tin cậy 100%, chỉ ghi log `PRINTSCREEN_SUSPECTED`).
+- **Soft-lock khi phát hiện can thiệp**: một `MutationObserver` theo dõi
+  đúng node watermark — nếu bị gỡ/ẩn khỏi DOM (qua devtools chẳng hạn), màn
+  hình khoá lại yêu cầu tải lại trang mới tiếp tục được (không mất câu trả
+  lời đã lưu), đồng thời ghi log `WATERMARK_TAMPER`. Đã kiểm tra kỹ để việc
+  tương tác bình thường (chọn đáp án, chuyển câu, đổi tab) không kích hoạt
+  khoá nhầm.
+- **`/admin/analytics`**: bảng học viên (số lượt Real Test đã nộp, điểm gần
+  nhất, lần đăng nhập gần nhất), độ chính xác theo domain gộp toàn hệ thống
+  (Real Test + luyện tập), và 30 dòng log đăng nhập gần nhất.
+- **Dashboard học viên** (`/dashboard`) không còn là trang tĩnh mô tả "chưa
+  làm gì" nữa — hiện số đề đang mở, điểm gần nhất, số từ đến hạn ôn, số câu
+  đang sai, kèm 4 lối tắt vào từng tính năng.
+
+### Giới hạn đã biết ở Phase 6
+
+- Lớp chống copy/watermark **chỉ áp dụng cho màn hình Real Test** — trang
+  Luyện tập/Question Bank chưa có (rủi ro rò rỉ thấp hơn vì không phải đề
+  thi thật đang được giao có kiểm soát số lần làm).
+- Trang Phân tích chưa lọc theo từng nhóm/cohort riêng (hiện gộp toàn bộ học
+  viên trong một bảng) — với quy mô 10–100 học viên vẫn đọc được, nhưng nên
+  thêm bộ lọc cohort nếu số lượng học viên tăng nhiều.
+- Rate limit theo API vẫn chưa có (đã nói ở các phase trước) — ở quy mô nội
+  bộ hiện tại, giới hạn thiết bị + session + watermark truy vết là đủ.
+
 ## Backup / restore database
 
 Dùng công cụ chuẩn của Postgres, không cần script riêng:
@@ -384,6 +424,22 @@ kể cả khi chạy local.
    từ đó trong "Từ vựng của tôi".
 6. `npm run build` chạy sạch, không lỗi type.
 
+## Checklist Phase 6 — tự kiểm tra
+
+1. Bắt đầu một Real Test → thấy watermark tên+email lặp mờ trên toàn màn
+   hình, đọc được nhưng không che khuất nội dung.
+2. Chọn đáp án, chuyển qua lại vài câu, gắn cờ, đổi tab rồi quay lại → **không**
+   bị khoá màn hình (không hiện "Đã phát hiện can thiệp").
+3. Bấm chuột phải trong lúc thi → không hiện context menu của trình duyệt.
+4. Bấm Ctrl/Cmd+C khi đang chọn (hoặc cố chọn) đoạn văn → không copy được gì.
+5. Mở DevTools, xoá thủ công node watermark khỏi DOM → màn hình khoá lại,
+   yêu cầu tải lại trang; tải lại xong vẫn vào tiếp được bài đang làm dở.
+6. Đăng nhập admin, vào `/admin/analytics` → thấy đủ 3 khối: bảng học viên,
+   độ chính xác theo domain, log đăng nhập gần đây.
+7. Vào `/dashboard` (học viên) → thấy đủ 4 số liệu và 4 lối tắt, không còn
+   dòng chữ "Phase 2" cũ.
+8. `npm run build` chạy sạch, không lỗi type.
+
 ## Checklist Phase 1 — tự kiểm tra
 
 1. Không có route `/register` hay tương tự — tài khoản chỉ tạo được ở
@@ -433,4 +489,15 @@ kể cả khi chạy local.
 - Ôn lại ngay trong cùng lượt khi chấm "Lại" (Anki thường cho quay vòng lại
   trong phiên) — hiện chỉ đến hạn lại ở lượt ôn tiếp theo.
 
-**Phase 6:** xem mục tổng quan ở đầu file — đang làm.
+**Phase 6:**
+- Chống copy/watermark mới áp dụng ở Real Test, chưa mở rộng sang Luyện tập.
+- Trang Phân tích chưa lọc theo cohort, chưa có biểu đồ theo thời gian (mới
+  chỉ có ảnh chụp trạng thái hiện tại).
+- Không có cách nào chặn chụp ảnh màn hình/điện thoại — giới hạn vật lý,
+  không phải thiếu sót kỹ thuật (xem mục "Giới hạn đã biết ở Phase 6").
+
+**Ngoài phạm vi Phase 0 ban đầu, có thể làm thêm nếu cần:**
+- Máy tính Desmos nhúng + reference sheet cho Math (đã nêu ở Phase 3).
+- Highlight/gạch chân đoạn văn tự do (model `Annotation` đã có, chưa có UI).
+- Deck vocab mẫu do admin đẩy xuống cả lớp.
+- Rate limit theo API, job queue cho AI parse thay vì chạy đồng bộ.

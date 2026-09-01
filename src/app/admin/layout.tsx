@@ -23,6 +23,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/tests" className="text-ink hover:text-pen">
               Đề thi
             </Link>
+            <Link href="/admin/analytics" className="text-ink hover:text-pen">
+              Phân tích
+            </Link>
           </nav>
         </div>
         <div className="flex items-center gap-4">
