@@ -55,6 +55,8 @@ model User {
   practiceSets     PracticeSet[]
   practiceAttempts PracticeAttempt[]
   bookmarks        Bookmark[]
+  vocabDecks       VocabDeck[]
+  vocabWords       VocabWord[]
 
   @@index([cohortId])
 }
@@ -270,6 +272,7 @@ model Question {
   annotations      Annotation[]
   practiceAttempts PracticeAttempt[]
   bookmarks        Bookmark[]
+  vocabWords       VocabWord[]
 
   @@index([moduleId])
   @@index([domain, skill, difficulty])
@@ -463,4 +466,64 @@ model Bookmark {
   createdAt  DateTime @default(now())
 
   @@unique([userId, questionId])
+}
+
+// ---------------------------------------------------------------------
+// Phase 5 — Vocab Notebook + spaced repetition (simplified SM-2).
+// ---------------------------------------------------------------------
+
+enum ReviewGrade {
+  AGAIN
+  HARD
+  GOOD
+  EASY
+}
+
+model VocabDeck {
+  id               String   @id @default(cuid())
+  ownerUserId      String?
+  ownerUser        User?    @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  name             String
+  isSharedTemplate Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  words VocabWord[]
+
+  @@index([ownerUserId])
+}
+
+model VocabWord {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deckId           String
+  deck             VocabDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  term             String
+  definition       String
+  partOfSpeech     String?
+  ipa              String?
+  synonyms         String[]  @default([])
+  exampleSentence  String?
+  sourceQuestionId String?
+  sourceQuestion   Question? @relation(fields: [sourceQuestionId], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+
+  review VocabReview?
+
+  @@index([userId])
+  @@index([deckId])
+}
+
+model VocabReview {
+  id             String       @id @default(cuid())
+  wordId         String       @unique
+  word           VocabWord    @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  easeFactor     Float        @default(2.5)
+  intervalDays   Int          @default(0)
+  repetitions    Int          @default(0)
+  dueAt          DateTime     @default(now())
+  lastReviewedAt DateTime?
+  lastGrade      ReviewGrade?
+
+  @@index([dueAt])
 }

@@ -1,11 +1,11 @@
 # 12WSAT
 
 Web luyện SAT nội bộ, mời riêng — không có trang đăng ký công khai. Repo này
-đang ở **Phase 4**: Phase 1 (tài khoản, thiết bị, session), Phase 2 (luồng
-nội dung đề thi cho admin), Phase 3 (màn hình làm bài "Real Test" — timer,
-adaptive theo module, tự chấm điểm), và Phase 4 (Luyện tập / Question Bank
-theo domain-skill, Sổ lỗi) đều đã xong. Phase 5 (Vocab Notebook + SRS) và
-Phase 6 (chống copy/watermark, admin analytics, polish) đang làm tiếp.
+đang ở **Phase 5**: Phase 1 (tài khoản, thiết bị, session), Phase 2 (luồng
+nội dung đề thi cho admin), Phase 3 (màn hình làm bài "Real Test"), Phase 4
+(Luyện tập / Question Bank, Sổ lỗi), và Phase 5 (Vocab Notebook + ôn tập
+ngắt quãng SM-2) đều đã xong. Phase 6 (chống copy/watermark, admin
+analytics, polish) đang làm tiếp.
 
 ## Stack
 
@@ -259,6 +259,37 @@ Vào `/admin/users/<id>` để gỡ bớt thiết bị cũ nếu đúng là do h
 - **Đánh dấu (bookmark)** một câu trong lúc luyện tập bằng nút ★ ở góc phải
   trên — hiện chưa có trang riêng liệt kê các câu đã đánh dấu (xem "Chưa làm").
 
+## Vocab Notebook + ôn tập ngắt quãng (Phase 5) — cách hoạt động
+
+- **`/dashboard/vocab`**: mỗi học viên có các "bộ từ" (`VocabDeck`) riêng —
+  bộ đầu tiên ("Từ vựng của tôi") tự tạo khi thêm từ đầu tiên, có thể tạo
+  thêm bộ khác. Thêm từ thủ công (từ vựng, định nghĩa, từ loại, IPA, đồng
+  nghĩa, câu ví dụ) qua form ở cuối trang.
+- **Thêm từ ngay từ câu hỏi đang luyện**: trong màn Luyện tập
+  (`/practice/<id>`), sau khi trả lời xong một câu có nút "+ Thêm một từ từ
+  câu này vào Vocab" — lưu kèm `sourceQuestionId` trỏ về đúng câu đó, luôn
+  vào bộ từ mặc định.
+- **Lịch ôn tập kiểu SM-2** (`src/lib/vocab/srs.ts`), rút gọn theo mô hình
+  4 nút quen thuộc (Anki): mỗi từ có `easeFactor`/`intervalDays`/`repetitions`
+  riêng; chấm "Lại" thì hôm nay còn đến hạn lại (ôn liền lần sau), "Khó/Tốt/Dễ"
+  càng nhớ chắc thì khoảng cách lần ôn tiếp theo càng dài.
+- **`/dashboard/vocab/review`**: chỉ hiện từ đã đến hạn (`dueAt <= now`, tối
+  đa 50 từ/lượt) — xem từ trước, bấm "Xem đáp án" mới hiện định nghĩa, rồi tự
+  chấm mức độ nhớ. Không đến hạn từ nào thì trang báo rõ, không bắt ôn ép.
+
+### Giới hạn đã biết ở Phase 5
+
+- **Chưa có deck mẫu do admin đẩy xuống** (`isSharedTemplate` đã có trong
+  schema, chưa có UI cho admin tạo/gán) — mỗi học viên tự xây bộ từ của
+  mình từ đầu.
+- **Nút "+ Thêm từ" trong lúc luyện tập luôn lưu vào bộ từ mặc định**, không
+  cho chọn bộ từ khác ngay tại đó — muốn sắp xếp lại thì vào thẳng
+  `/dashboard/vocab/<deckId>` (hiện chưa có nút "chuyển bộ từ" cho từ đã tạo,
+  chỉ có thêm/xoá).
+- Nếu chấm "Lại" nhiều lần liên tiếp trong cùng một lượt ôn, từ đó **không
+  quay lại ngay trong lượt đó** (chỉ đến hạn lại từ lượt ôn tiếp theo) — để
+  tránh vòng lặp vô hạn trong 1 phiên, đơn giản hơn so với SM-2 "chuẩn".
+
 ## Backup / restore database
 
 Dùng công cụ chuẩn của Postgres, không cần script riêng:
@@ -339,6 +370,20 @@ kể cả khi chạy local.
    trong DB, không phải state tạm client).
 6. `npm run build` chạy sạch, không lỗi type.
 
+## Checklist Phase 5 — tự kiểm tra
+
+1. Vào `/dashboard/vocab`, thêm một từ mới (không chỉ định deck) → tự tạo bộ
+   "Từ vựng của tôi", "N từ đến hạn ôn hôm nay" tăng thêm 1.
+2. Bấm vào bộ từ vừa tạo → thấy đúng từ vừa thêm, đủ định nghĩa/đồng nghĩa.
+3. Bấm "Bắt đầu ôn tập" → thấy từ, bấm "Xem đáp án" → hiện định nghĩa, chấm
+   "Tốt" → chuyển từ tiếp theo hoặc màn "Đã ôn xong".
+4. Vào lại `/dashboard/vocab` → "N từ đến hạn" giảm đúng 1 (từ vừa ôn dời
+   sang ngày mai, không còn đến hạn hôm nay).
+5. Vào `/dashboard/practice`, luyện một câu, sau khi có kết quả bấm "+ Thêm
+   một từ từ câu này vào Vocab", điền và lưu → vào lại Vocab Notebook thấy
+   từ đó trong "Từ vựng của tôi".
+6. `npm run build` chạy sạch, không lỗi type.
+
 ## Checklist Phase 1 — tự kiểm tra
 
 1. Không có route `/register` hay tương tự — tài khoản chỉ tạo được ở
@@ -379,6 +424,13 @@ kể cả khi chạy local.
   Sổ lỗi, vốn liệt kê câu *sai* chứ không phải câu được *đánh dấu*).
 - Không giới hạn số câu tối đa mỗi lượt luyện (Question Bank cho tick chọn
   tuỳ ý) — với đề rất lớn, danh sách hiển thị bị cắt ở 60 câu/lần lọc.
-- Vocab Notebook, SRS — Phase 5.
 
-**Phase 5 & 6:** xem mục tổng quan ở đầu file — đang làm.
+**Phase 5:**
+- Deck mẫu do admin đẩy xuống cho cả lớp (`isSharedTemplate` có trong schema,
+  chưa có UI).
+- Chọn bộ từ khi thêm nhanh từ lúc luyện tập (luôn vào bộ mặc định); chuyển
+  một từ đã tạo sang bộ khác.
+- Ôn lại ngay trong cùng lượt khi chấm "Lại" (Anki thường cho quay vòng lại
+  trong phiên) — hiện chỉ đến hạn lại ở lượt ôn tiếp theo.
+
+**Phase 6:** xem mục tổng quan ở đầu file — đang làm.

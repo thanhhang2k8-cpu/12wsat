@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { submitPracticeAnswerAction, advancePracticeAction, toggleBookmarkAction } from "@/lib/actions/practice";
 import { MathText } from "@/components/MathText";
+import { QuickAddVocab } from "./QuickAddVocab";
 
 type Choice = { label: string; textMd: string };
 type QuestionImage = { id: string; note: string | null; url: string };
@@ -172,6 +173,7 @@ export function PracticeSessionClient({
               ) : (
                 <p className="text-[13.5px] text-muted">Chưa có lời giải cho câu này.</p>
               )}
+              <QuickAddVocab questionId={question.id} />
             </div>
           )}
 

@@ -10,7 +10,7 @@ const navItems = [
   { label: "Real Test", href: "/dashboard/real-test", enabled: true },
   { label: "Luyện tập / Question Bank", href: "/dashboard/practice", enabled: true },
   { label: "Sổ lỗi", href: "/dashboard/wrong-answers", enabled: true },
-  { label: "Vocab Notebook", href: "/dashboard/vocab", enabled: false },
+  { label: "Vocab Notebook", href: "/dashboard/vocab", enabled: true },
 ];
 
 export function TopNav({ user }: { user: User }) {
