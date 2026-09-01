@@ -13,20 +13,9 @@
   --color-tint: #edeeea;
 }
 
-:root:not([data-theme="light"]) {
-  @media (prefers-color-scheme: dark) {
-    --color-paper: #16211d;
-    --color-ink: #edefea;
-    --color-pen: #6fa0d8;
-    --color-amber: #e0a55c;
-    --color-red-ink: #e0837c;
-    --color-chalk-green: #7cb894;
-    --color-rule: #34443c;
-    --color-muted: #9aa39a;
-    --color-tint: #202d27;
-  }
-}
-
+/* Always light — no automatic dark mode from OS/browser prefers-color-scheme.
+   The manual [data-theme="dark"] override below is kept dormant for a
+   possible future toggle, but nothing currently sets that attribute. */
 :root[data-theme="dark"] {
   --color-paper: #16211d;
   --color-ink: #edefea;
