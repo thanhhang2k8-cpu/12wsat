@@ -7,6 +7,14 @@ const nextConfig: NextConfig = {
   // bundling path). @prisma/adapter-pg + pg are kept external for the same
   // "native/runtime-resolved dependency" reason.
   serverExternalPackages: ["@node-rs/argon2", "@prisma/adapter-pg", "pg"],
+  // Default Server Action body limit is 1MB — a scanned SAT test PDF blows
+  // past that easily, so the admin upload form's request just dies with no
+  // useful error on the client. Raised to cover realistic multi-page scans.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "25mb",
+    },
+  },
 };
 
 export default nextConfig;

@@ -4,6 +4,9 @@ import { getObjectUrl } from "@/lib/storage";
 import { ReviewWorkspace } from "./ReviewWorkspace";
 
 export const dynamic = "force-dynamic";
+// "Nhờ AI parse lại" (reparseWholeTestAction/reparseQuestionAction) runs the
+// same synchronous AI parse as upload — see admin/tests/page.tsx for why.
+export const maxDuration = 60;
 
 export default async function TestReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

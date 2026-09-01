@@ -2,6 +2,12 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { UploadForm } from "./UploadForm";
 
+// AI parse runs synchronously inside uploadTestsAction (a Server Action on
+// this page) — a full multi-page test can take well over the platform
+// default (10s). 60s is the max Vercel Hobby allows; upgrade the plan or
+// move parsing to a background job if a single upload still times out.
+export const maxDuration = 60;
+
 const statusLabel: Record<string, { text: string; color: string }> = {
   DRAFT: { text: "Nháp", color: "var(--color-muted)" },
   PUBLISHED: { text: "Đã publish", color: "var(--color-chalk-green)" },

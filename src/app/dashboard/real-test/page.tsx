@@ -17,7 +17,7 @@ export default async function RealTestListPage() {
   const assignments = await prisma.assignment.findMany({
     where: {
       OR: [{ userId: user.id }, ...(user.cohortId ? [{ cohortId: user.cohortId }] : [])],
-      test: { status: "PUBLISHED" },
+      test: { status: "PUBLISHED", type: "FULL_TEST" },
     },
     include: { test: true },
     orderBy: { createdAt: "desc" },

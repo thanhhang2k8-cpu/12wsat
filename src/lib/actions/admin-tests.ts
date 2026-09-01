@@ -374,6 +374,12 @@ export async function publishTestAction(testId: string): Promise<FormState> {
   redirect(`/admin/tests/${testId}`);
 }
 
+export async function setTestTypeAction(testId: string, type: "FULL_TEST" | "PRACTICE_SET") {
+  await requireRole("ADMIN");
+  await prisma.test.update({ where: { id: testId }, data: { type } });
+  revalidatePath(`/admin/tests/${testId}`);
+}
+
 export async function archiveTestAction(testId: string) {
   await requireRole("ADMIN");
   await prisma.test.update({ where: { id: testId }, data: { status: "ARCHIVED" } });

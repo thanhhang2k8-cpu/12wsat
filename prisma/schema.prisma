@@ -30,17 +30,19 @@ model Cohort {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  passwordHash String
-  fullName     String
-  note         String?
-  role         Role       @default(STUDENT)
-  status       UserStatus @default(ACTIVE)
-  maxDevices   Int        @default(2)
-  expiresAt    DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id             String     @id @default(cuid())
+  email          String     @unique
+  passwordHash   String
+  fullName       String
+  note           String?
+  role           Role       @default(STUDENT)
+  status         UserStatus @default(ACTIVE)
+  maxDevices     Int        @default(2)
+  expiresAt      DateTime?
+  targetScore    Int?
+  targetExamDate DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   cohortId String?
   cohort   Cohort? @relation(fields: [cohortId], references: [id])

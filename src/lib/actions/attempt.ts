@@ -33,6 +33,9 @@ export async function startAttemptAction(testId: string) {
   if (!test || test.status !== "PUBLISHED") {
     throw new Error("Đề không tồn tại hoặc chưa được publish.");
   }
+  if (test.type !== "FULL_TEST") {
+    throw new Error("Đề này được đánh dấu là bộ câu luyện tập, không phải Real Test.");
+  }
 
   const assignment = await findEligibleAssignment(testId, user.id, user.cohortId);
   if (!assignment) {

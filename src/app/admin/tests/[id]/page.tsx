@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ScoreScaleForm } from "./ScoreScaleForm";
 import { AssignmentForm, DeleteAssignmentButton } from "./AssignmentForm";
 import { TestLifecycleActions } from "./TestLifecycleActions";
+import { TestTypeSelector } from "./TestTypeSelector";
 
 const statusLabel: Record<string, string> = { DRAFT: "Nháp", PUBLISHED: "Đã publish", ARCHIVED: "Đã lưu trữ" };
 
@@ -72,6 +73,10 @@ export default async function TestDetailPage({ params }: { params: Promise<{ id:
       )}
 
       <section className="border-t border-rule pt-8">
+        <TestTypeSelector testId={test.id} type={test.type} />
+      </section>
+
+      <section className="mt-8 border-t border-rule pt-8">
         <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-wide">Bảng quy đổi điểm</h2>
         <div className="flex gap-12">
           <ScoreScaleForm testId={test.id} section="READING_WRITING" label="Reading & Writing (/800)" initialRows={rwScale} />
